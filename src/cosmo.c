@@ -47,6 +47,11 @@ double get_bg(ParamCoLoRe *par,double r,int tag,int ipop)
     return f_of_r_linear(par,r,par->growth_d2_arr,par->growth_d2_arr[0],
 			 par->growth_d2_arr[NA-1]);
   }
+  else if(tag==BG_F1)
+    return f_of_r_linear(par,r,par->growth_f1_arr,par->growth_f1_arr[0],par->growth_f1_arr[NA-1]);
+  else if(tag==BG_F2) {
+    return f_of_r_linear(par,r,par->growth_f2_arr,par->growth_f2_arr[0],par->growth_f2_arr[NA-1]);
+  }
   else if(tag==BG_V1)
     return f_of_r_linear(par,r,par->growth_v_arr,par->growth_v_arr[0],par->growth_v_arr[NA-1]);
   else if(tag==BG_PD) {
@@ -717,11 +722,14 @@ void cosmo_set(ParamCoLoRe *par)
     double gz=csm_growth_factor(pars,a)/growth0;
     double om=csm_omega_m(pars,a);
     double fz=csm_f_growth(pars,a);
+    double f2z=2*pow(om, 0.5714285714285714); // Using 2LPTic Paper aproximation for f2(z) consistent with the one for D2(z)
     double hhz=csm_hubble(pars,a);
     par->z_arr_r2z[ii]=z;
     par->r_arr_r2z[ii]=r;
     par->growth_d_arr[ii]=gz;
-    par->growth_d2_arr[ii]=-0.42857142857*gz*gz*pow(om,-0.00699300699);
+    par->growth_d2_arr[ii]=-0.42857142857*gz*gz*pow(om,-0.00699300699); // Using Paper aproximation for D2(z) = -3/7*D1**2*Om**eps; consistent with the one for f2(z)
+    par->growth_f1_arr[ii]=fz; // Initialize the f1 and f2 arrays
+    par->growth_f2_arr[ii]=f2z;
     par->growth_v_arr[ii]=(gz*hhz*fz)/(par->fgrowth_0*par->hubble_0); //This is for the comoving velocity
     par->growth_pd_arr[ii]=gz*hhz*(fz-1);
     par->ihub_arr[ii]=1./hhz;

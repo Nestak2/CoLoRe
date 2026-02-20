@@ -9,7 +9,7 @@ OPTIONS = -Wall -Wno-format-overflow -O3 -std=c99
 #Use double precision integer (enable in general)
 DEFINEFLAGS += -D_LONGIDS
 #Use normalized bias model
-DEFINEFLAGS += -D_BIAS_MODEL_2
+DEFINEFLAGS += -D_BIAS_MODEL_3
 #Use linear bias model
 #DEFINEFLAGS += -D_BIAS_MODEL_3
 #Use new lensing method
@@ -33,8 +33,8 @@ USE_MPI = yes
 #GSL
 #GSL_INC = -I/add/path
 #GSL_LIB = -L/add/path
-GSL_INC = -I/home/alonso/include
-GSL_LIB = -L/home/alonso/lib
+GSL_INC = 
+GSL_LIB = 
 #FFTW
 FFTW_INC =
 FFTW_LIB =
@@ -45,8 +45,8 @@ FITS_LIB =
 HDF5_INC =
 HDF5_LIB =
 #libconfig
-CONF_INC =
-CONF_LIB =
+CONF_INC = -I/home/mruizh/software_libconf/include
+CONF_LIB = -L/home/mruizh/software_libconf/lib
 #healpix
 HPIX_INC =
 HPIX_LIB =
