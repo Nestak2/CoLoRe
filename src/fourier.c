@@ -232,33 +232,35 @@ void allocate_fftw(ParamCoLoRe *par)
     report_error(1,"Ran out of memory\n");
   par->grid_npot=(flouble *)(par->grid_npot_f);
 
+if (par->lpt_vels) {
 #ifdef _SPREC
-  par->grid_velx_f=fftwf_alloc_complex(dsize);
-#else //_SPREC
-  par->grid_velx_f=fftw_alloc_complex(dsize);
-#endif //_SPREC
-  if(par->grid_velx_f==NULL)
-    report_error(1,"Ran out of memory\n");
-  par->grid_velx=(flouble *)(par->grid_velx_f);
+    par->grid_velx_f = fftwf_alloc_complex(dsize);
+#else
+    par->grid_velx_f = fftw_alloc_complex(dsize);
+#endif
+    if(par->grid_velx_f == NULL) report_error(1,"Ran out of memory\n");
+    par->grid_velx = (flouble *)(par->grid_velx_f);
 
 #ifdef _SPREC
-  par->grid_vely_f=fftwf_alloc_complex(dsize);
-#else //_SPREC
-  par->grid_vely_f=fftw_alloc_complex(dsize);
-#endif //_SPREC
-  if(par->grid_vely_f==NULL)
-    report_error(1,"Ran out of memory\n");
-  par->grid_vely=(flouble *)(par->grid_vely_f);
-//
+    par->grid_vely_f = fftwf_alloc_complex(dsize);
+#else
+    par->grid_vely_f = fftw_alloc_complex(dsize);
+#endif
+    if(par->grid_vely_f == NULL) report_error(1,"Ran out of memory\n");
+    par->grid_vely = (flouble *)(par->grid_vely_f);
 
 #ifdef _SPREC
-  par->grid_velz_f=fftwf_alloc_complex(dsize);
-#else //_SPREC
-  par->grid_velz_f=fftw_alloc_complex(dsize);
-#endif //_SPREC
-  if(par->grid_velz_f==NULL)
-    report_error(1,"Ran out of memory\n");
-  par->grid_velz=(flouble *)(par->grid_velz_f);
+    par->grid_velz_f = fftwf_alloc_complex(dsize);
+#else
+    par->grid_velz_f = fftw_alloc_complex(dsize);
+#endif
+    if(par->grid_velz_f == NULL) report_error(1,"Ran out of memory\n");
+    par->grid_velz = (flouble *)(par->grid_velz_f);
+  }
+  else {
+    par->grid_velx_f = NULL;  par->grid_vely_f = NULL;  par->grid_velz_f = NULL;
+    par->grid_velx   = NULL;  par->grid_vely   = NULL;  par->grid_velz   = NULL;
+  }
 
 #ifdef _HAVE_MPI
   par->slice_left =&(par->grid_npot[2*dsize]);
@@ -271,27 +273,30 @@ void end_fftw(ParamCoLoRe *par)
 #ifdef _SPREC
   if(par->grid_dens_f!=NULL)
     fftwf_free(par->grid_dens_f);
-  if(par->grid_velx_f!=NULL)
-    fftwf_free(par->grid_velx_f);
-  if(par->grid_vely_f!=NULL)
-    fftwf_free(par->grid_vely_f);
-  if(par->grid_velz_f!=NULL)
-    fftwf_free(par->grid_velz_f);
+  if(par->lpt_vels) {
+    if(par->grid_velx_f!=NULL)
+      fftwf_free(par->grid_velx_f);
+    if(par->grid_vely_f!=NULL)
+      fftwf_free(par->grid_vely_f);
+    if(par->grid_velz_f!=NULL)
+      fftwf_free(par->grid_velz_f);
+  }
   if(par->grid_npot_f!=NULL)
     fftwf_free(par->grid_npot_f);
 #else //_SPREC
   if(par->grid_dens_f!=NULL)
     fftw_free(par->grid_dens_f);
-  if(par->grid_velx_f!=NULL)
-    fftw_free(par->grid_velx_f);
-  if(par->grid_vely_f!=NULL)
-    fftw_free(par->grid_vely_f);
-  if(par->grid_velz_f!=NULL)
-    fftw_free(par->grid_velz_f);
+  if(par->lpt_vels) {
+    if(par->grid_velx_f!=NULL)
+      fftw_free(par->grid_velx_f);
+    if(par->grid_vely_f!=NULL)
+      fftw_free(par->grid_vely_f);
+    if(par->grid_velz_f!=NULL)
+      fftw_free(par->grid_velz_f);
+  }
   if(par->grid_npot_f!=NULL)
     fftw_free(par->grid_npot_f);
 #endif //_SPREC
-
 #ifdef _HAVE_MPI
 
 #ifdef _HAVE_OMP

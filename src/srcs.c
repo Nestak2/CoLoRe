@@ -252,8 +252,12 @@ static void srcs_set_cartesian_single(ParamCoLoRe *par,int ipop)
 	    double rr=sqrt(x0*x0+y0*y0+z0*z0);
 	    double rvel=factor_vel*get_rvel(par,ix,iy,iz,x0,y0,z0,rr);
 	    double dz_rsd;
-	    if (par->lpt_vzty) {
-	       dz_rsd=par->grid_velx[index]; // This is simply for consistency with the Snapshot Version. Note that the true dz_rsd will be computed in the skewers!
+	    if (par->lpt_vels) {
+	       double ir_cell = 1.0/MAX(rr,0.001);
+	       double ux = x0*ir_cell, uy = y0*ir_cell, uz = z0*ir_cell;
+	       dz_rsd = par->grid_velx[index]*ux
+	              + par->grid_vely[index]*uy
+	              + par->grid_velz[index]*uz;
 	    } else {
 	       dz_rsd=rvel*get_bg(par,rr,BG_V1,0);
             }
@@ -504,7 +508,7 @@ static void srcs_get_beam_properties_single(ParamCoLoRe *par,int ipop)
       //Compute RSD
       added=interpolate_from_grid(par,xn,NULL,v,NULL,NULL,NULL,RETURN_VEL,INTERP_TYPE_SKW);
       if(added) {
-	if (par->lpt_vzty) { //This is directly velocity
+	if (par->lpt_vels) { //This is directly velocity
            vr=(v[0]*u[0]+v[1]*u[1]+v[2]*u[2]);
 	} else {
 	   vr=0.5*idx*(v[0]*u[0]+v[1]*u[1]+v[2]*u[2]);
@@ -527,7 +531,7 @@ static void srcs_get_beam_properties_single(ParamCoLoRe *par,int ipop)
 	    added=interpolate_from_grid(par,xn,&dens,v,NULL,NULL,&gauss,RETURN_DENS | RETURN_VEL,INTERP_TYPE_SKW);
 	  }
       	  if(added) {
-	    if (par->lpt_vzty) { //Same as above
+	    if (par->lpt_vels) { //Same as above
 	      vr=(v[0]*u[0]+v[1]*u[1]+v[2]*u[2]);
 	    } else {
       	      vr=0.5*idx*(v[0]*u[0]+v[1]*u[1]+v[2]*u[2]);
@@ -656,9 +660,7 @@ static void srcs_beams_postproc_single(ParamCoLoRe *par,int ipop)
   {
     int ii;
     double factor_vel;
-    if (!par->lpt_vzty){ //2LPT velocities are already normalized!
-       factor_vel=-par->fgrowth_0/(1.5*par->hubble_0*par->OmegaM);
-    }
+    factor_vel=-par->fgrowth_0/(1.5*par->hubble_0*par->OmegaM);
 #ifdef _USE_FAST_LENSING
     int ir_s=0;
     HealpixShellsAdaptive *smap=NULL;
@@ -675,7 +677,7 @@ static void srcs_beams_postproc_single(ParamCoLoRe *par,int ipop)
       double vg=get_bg(par,r,BG_V1,0);
 
       //RSDs //2LPT velocities are already normalized!
-      if (!par->lpt_vzty){
+      if (!par->lpt_vels){
          cat->srcs[ii].dz_rsd*=vg*factor_vel;
       }
       //Lensing
@@ -742,7 +744,7 @@ static void srcs_beams_postproc_single(ParamCoLoRe *par,int ipop)
 
       //Skewers
       //2LPT Velocities are already normalized!
-      if (!par->lpt_vzty){
+      if (!par->lpt_vels){
          if(cat->has_skw) {
 	   int i_r,i_r_max=MAX((int)(r*cat->idr+0.5),cat->nr-1);
 	   long offp=ii*cat->nr;

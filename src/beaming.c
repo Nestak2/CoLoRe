@@ -67,7 +67,7 @@ static void get_element(ParamCoLoRe *par,long ix,long iy,long iz,
 
   //Get velocity
   if(flag_return & RETURN_VEL) {
-    if (par->lpt_vzty){
+    if (par->lpt_vels){
        v[0]=par->grid_velx[ix_0+iy_0+iz_0];
        v[1]=par->grid_vely[ix_0+iy_0+iz_0];
        v[2]=par->grid_velz[ix_0+iy_0+iz_0];

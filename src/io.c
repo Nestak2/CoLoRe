@@ -64,7 +64,7 @@ static ParamCoLoRe *param_colore_new(void)
   par->smooth_potential=0;
   par->dens_type=DENS_TYPE_LGNR;
   par->lpt_interp_type=INTERP_CIC;
-  par->lpt_vzty=0;
+  par->lpt_vels=0;
   par->lpt_buffer_fraction=0.2;
   par->output_lpt=0;
   par->seed_rng=1234;
@@ -304,7 +304,7 @@ ParamCoLoRe *read_run_params(char *fname,int test_memory)
   conf_read_int(conf,"field_par","dens_type",&(par->dens_type));
   conf_read_double(conf,"field_par","lpt_buffer_fraction",&(par->lpt_buffer_fraction));
   conf_read_int(conf,"field_par","lpt_interp_type",&(par->lpt_interp_type));
-  conf_read_int(conf,"field_par","lpt_vzty",&(par->lpt_vzty));
+  conf_read_int(conf,"field_par","lpt_vels",&(par->lpt_vels));
   conf_read_int(conf,"field_par","output_lpt",&(par->output_lpt));
 
   par->seed_rng=i_dum;

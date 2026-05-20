@@ -271,7 +271,7 @@ typedef struct {
   int smooth_potential; //Do we smooth the newtonian potential as well?
   int dens_type; //Method to produce the density field
   int lpt_interp_type;
-  int lpt_vzty; // Use 2LPT velocities (only makes sense if dens_type is 2LPT)
+  int lpt_vels; // Use 2LPT velocities (only makes sense if dens_type is 2LPT)
   double lpt_buffer_fraction; //Fraction of memory saved for buffer particles
   int output_lpt;
   unsigned int seed_rng; //RNG seed

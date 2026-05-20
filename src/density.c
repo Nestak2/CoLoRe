@@ -262,7 +262,6 @@ static void pos_2_dens_2lpt(ParamCoLoRe *par,unsigned long long np_here,
   }
   // Normalize velocity by density 
   for(ii=0;ii<par->nz_here*par->n_grid*ngx;ii++) {
-    //if(dens[ii]!=0){
     if(dens[ii]!=0) {
       velsx[ii] /= dens[ii];
       velsy[ii] /= dens[ii];
@@ -772,9 +771,12 @@ static void lpt_1(ParamCoLoRe *par)
 	    disp[ax][index]=p;
 	  }
 	  par->grid_dens[index]=0;
-	 par->grid_velx[index]=0; //Fill the 2LPT velocities with zero not needed (Maybe improve?)
-        par->grid_vely[index]=0;
-        par->grid_velz[index]=0;
+	//Fill the 2LPT velocities with zero not needed (Maybe improve?)
+        if (par->lpt_vels) {
+    	   par->grid_velx[index] = 0;
+    	   par->grid_vely[index] = 0;
+    	   par->grid_velz[index] = 0;
+	   }
 	}
       }
     } //end omp for
@@ -928,7 +930,7 @@ static void lpt_2(ParamCoLoRe *par)
   print_info(" 2LPT\n");
   dftw_complex *(cdisp[3]),*(cdigrad[9]);
   flouble *(disp[3]),*(digrad[9]);
-  if (par->lpt_vzty){
+  if (par->lpt_vels){
      print_info(" with 2LPT velocities\n");
   } else {
      print_info(" without 2LPT velocities\n");
@@ -941,10 +943,18 @@ static void lpt_2(ParamCoLoRe *par)
     cdisp[axis]=dftw_alloc_complex(dsize_buff);
     disp[axis]=(flouble *)cdisp[axis];
   }
-  for(axis=0;axis<9;axis++) {
-     cdigrad[axis]=dftw_alloc_complex(dsize_buff);
-     digrad[axis]=(flouble *)cdigrad[axis];
+  if (par->lpt_vels) {
+    for(axis=0; axis<9; axis++) {
+      cdigrad[axis] = dftw_alloc_complex(dsize_buff);
+      digrad[axis] = (flouble *)cdigrad[axis];
+    }
+  } else {
+    for(axis=0; axis<6; axis++) {
+      cdigrad[axis] = dftw_alloc_complex(dsize_buff);
+      digrad[axis] = (flouble *)cdigrad[axis];
+    }
   }
+  
   cdisp[2]=par->grid_dens_f;
   disp[2]=par->grid_dens;
   fftw_wrap_r2c(par->n_grid,par->grid_dens,par->grid_dens_f);
@@ -1148,7 +1158,7 @@ static void lpt_2(ParamCoLoRe *par)
 	  r=sqrt(xv[0]*xv[0]+xv[1]*xv[1]+xv[2]*xv[2]);
 	  dg=get_bg(par,r,BG_D1,0);
 	  d2g=get_bg(par,r,BG_D2,0);
-	  if (par->lpt_vzty) { //Calculate growth rates and H(z)^-1
+	  if (par->lpt_vels) { //Calculate growth rates and H(z)^-1
 	     f1g=get_bg(par,r,BG_F1,0);
 	     f2g=get_bg(par,r,BG_F2,0);
 	     invhz=get_bg(par,r,BG_IH,0);
@@ -1162,18 +1172,21 @@ static void lpt_2(ParamCoLoRe *par)
 	    d_sigma2_2_thr+=digrad[ax][index]*digrad[ax][index];
 #endif //_DEBUG
 	    flouble p=xv[ax]+dg*disp[ax][index]+d2g*digrad[ax][index]+par->pos_obs[ax];
-	    if (par->lpt_vzty) { //Get the particles 2LPT velocities!
-	       flouble vzty = (dg*f1g*disp[ax][index]+d2g*f2g*digrad[ax][index])/invhz;
-	       digrad[6+ax][index_nopad]=vzty;
+	    if (par->lpt_vels) { //Get the particles 2LPT velocities!
+	       flouble vels = (dg*f1g*disp[ax][index]+d2g*f2g*digrad[ax][index])/invhz;
+	       digrad[6+ax][index_nopad]=vels;
             }
 	    if(p<0) p+=par->l_box;
 	    if(p>=par->l_box) p-=par->l_box;
 	    digrad[3+ax][index_nopad]=p;
 	  }
 	  par->grid_dens[index]=0;
-	  par->grid_velx[index]=0; // Keep the grids to zero, we will fill them with interpolation scheme (only CIC now; see above)
-	  par->grid_vely[index]=0;
-          par->grid_velz[index]=0;
+	  // Keep the grids to zero, we will fill them with interpolation scheme (only CIC now; see above)
+	  if (par->lpt_vels) {
+           par->grid_velx[index] = 0;
+           par->grid_vely[index] = 0;
+           par->grid_velz[index] = 0;
+           }
 	}
       }
     } //end omp for
@@ -1246,7 +1259,7 @@ static void lpt_2(ParamCoLoRe *par)
   if (par->output_lpt) {
     np_here=par->nz_here*((long)(par->n_grid*par->n_grid));
     print_info(" - Writing LPT positions\n");
-    if (par->lpt_vzty) {
+    if (par->lpt_vels) {
        write_lpt_wvel(par,np_here,digrad[3],digrad[4],digrad[5], digrad[6], digrad[7], digrad[8]);
     } else {
        write_lpt(par,np_here,digrad[3],digrad[4],digrad[5]);
@@ -1255,7 +1268,7 @@ static void lpt_2(ParamCoLoRe *par)
 
 #ifdef _HAVE_MPI
   print_info(" - Sharing particle positions\n");
-  if (par->lpt_vzty) {
+  if (par->lpt_vels) {
      share_particles_2lpt(par,(unsigned long long)(2*dsize_buff),
                   (unsigned long long)(par->nz_here*((long)(par->n_grid*par->n_grid))),
                   digrad[3],digrad[4],digrad[5],digrad[6],digrad[7],digrad[8],&np_here);
@@ -1269,7 +1282,7 @@ static void lpt_2(ParamCoLoRe *par)
 #endif //_HAVE_MPI
 
   print_info(" - Interpolating positions into density field\n");
-  if (par->lpt_vzty) {
+  if (par->lpt_vels) {
      pos_2_dens_2lpt(par,np_here,digrad[3],digrad[4],digrad[5],par->grid_dens,digrad[6], digrad[7], digrad[8], par->grid_velx, par->grid_vely, par->grid_velz);
   } else {
      pos_2_dens(par,np_here,digrad[3],digrad[4],digrad[5],par->grid_dens);
