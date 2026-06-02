@@ -659,8 +659,7 @@ static void srcs_beams_postproc_single(ParamCoLoRe *par,int ipop)
 #endif //_HAVE_OMP
   {
     int ii;
-    double factor_vel;
-    factor_vel=-par->fgrowth_0/(1.5*par->hubble_0*par->OmegaM);
+    double factor_vel=-par->fgrowth_0/(1.5*par->hubble_0*par->OmegaM);
 #ifdef _USE_FAST_LENSING
     int ir_s=0;
     HealpixShellsAdaptive *smap=NULL;
