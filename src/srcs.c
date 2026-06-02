@@ -258,6 +258,7 @@ static void srcs_set_cartesian_single(ParamCoLoRe *par,int ipop)
 	              + par->grid_vely[index]*uy
 	              + par->grid_velz[index]*uz;
 	    } else {
+           double rvel=factor_vel*get_rvel(par,ix,iy,iz,x0,y0,z0,rr);
 	       dz_rsd=rvel*get_bg(par,rr,BG_V1,0);
             }
 	    for(ip=0;ip<npp;ip++) {
