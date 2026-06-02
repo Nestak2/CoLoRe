@@ -250,7 +250,6 @@ static void srcs_set_cartesian_single(ParamCoLoRe *par,int ipop)
 	  if(npp>0) {
 	    int ip;
 	    double rr=sqrt(x0*x0+y0*y0+z0*z0);
-	    double rvel=factor_vel*get_rvel(par,ix,iy,iz,x0,y0,z0,rr);
 	    double dz_rsd;
 	    if (par->lpt_vels) {
 	       double ir_cell = 1.0/MAX(rr,0.001);
