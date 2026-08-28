@@ -1,17 +1,17 @@
 ########## User-definable stuff ##########
 #
 ###Compiler and compilation options
-COMP_SER = gcc
+COMP_SER = /usr/bin/gcc
 COMP_MPI = mpicc
-OPTIONS = -Wall -Wno-format-overflow -O3 -std=c99
+OPTIONS = -Wall -Wno-format-overflow -Wno-incompatible-pointer-types -O3 -std=c99
 #
 ### Behavioural flags
 #Use double precision integer (enable in general)
 DEFINEFLAGS += -D_LONGIDS
 #Use normalized bias model
-DEFINEFLAGS += -D_BIAS_MODEL_2
+#DEFINEFLAGS += -D_BIAS_MODEL_2
 #Use linear bias model
-#DEFINEFLAGS += -D_BIAS_MODEL_3
+DEFINEFLAGS += -D_BIAS_MODEL_3
 #Use new lensing method
 #DEFINEFLAGS += -D_USE_FAST_LENSING
 #Generate debug help. Only useful for development
@@ -25,31 +25,29 @@ USE_HDF5 = no
 #Use OMP parallelization? Set to "yes" or "no"
 USE_OMP = yes
 #Use MPI parallelization? Set to "yes" or "no"
-USE_MPI = yes
+USE_MPI = no
 #
 ###Path to libraries and headers
 ###If two or more of the dependencies reside in the same paths, only
 ###one instance is necessary.
 #GSL
-#GSL_INC = -I/add/path
-#GSL_LIB = -L/add/path
-GSL_INC = -I/home/alonso/include
-GSL_LIB = -L/home/alonso/lib
+GSL_INC = -I$(CONDA_PREFIX)/include
+GSL_LIB = -L$(CONDA_PREFIX)/lib
 #FFTW
-FFTW_INC =
-FFTW_LIB =
+FFTW_INC = -I$(CONDA_PREFIX)/include
+FFTW_LIB = -L$(CONDA_PREFIX)/lib
 #cfitsio
-FITS_INC =
-FITS_LIB =
+FITS_INC = -I$(CONDA_PREFIX)/include
+FITS_LIB = -L$(CONDA_PREFIX)/lib
 #cfitsio
-HDF5_INC =
-HDF5_LIB =
+HDF5_INC = -I$(CONDA_PREFIX)/include
+HDF5_LIB = -L$(CONDA_PREFIX)/lib
 #libconfig
-CONF_INC =
-CONF_LIB =
+CONF_INC = -I$(CONDA_PREFIX)/include
+CONF_LIB = -L$(CONDA_PREFIX)/lib
 #healpix
-HPIX_INC =
-HPIX_LIB =
+HPIX_INC = -I$(CONDA_PREFIX)/include
+HPIX_LIB = -L$(CONDA_PREFIX)/lib
 #libsharp
 SHT_INC =
 SHT_LIB =

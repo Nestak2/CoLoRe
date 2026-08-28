@@ -102,7 +102,6 @@
 #define BG_IH 1005
 #define BG_NZ_SRCS 1006
 #define BG_BZ_SRCS 1007
-#define BG_TZ_SRCS 1015
 #define BG_NORM_SRCS 1008
 #define BG_TZ_IMAP 1009
 #define BG_BZ_IMAP 1010
@@ -112,6 +111,7 @@
 #define BG_NORM_CSTM 1014
 #define BG_F1 1015
 #define BG_F2 1016
+#define BG_TZ_SRCS 1017
 
 //Density field parameters
 #define DZ_SIGMA 0.05
