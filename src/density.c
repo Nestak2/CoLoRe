@@ -1678,6 +1678,15 @@ void compute_density_normalization(ParamCoLoRe *par)
   }
 
 #ifdef _DEBUG
+  for(ipop=0;ipop<par->n_srcs;ipop++) {
+    int _nnan=0,_ii;
+    for(_ii=0;_ii<NA;_ii++)
+      if(isnan(par->srcs_norm_arr[ipop][_ii])) _nnan++;
+    fprintf(stderr,"DBGTABLE srcs_norm_arr[%d]: NA=%d nnan=%d sample[0]=%.6le sample[NA/2]=%.6le "
+	    "sample[NA-1]=%.6le z0_norm=%.6le zf_norm=%.6le\n",
+	    ipop,NA,_nnan,par->srcs_norm_arr[ipop][0],par->srcs_norm_arr[ipop][NA/2],
+	    par->srcs_norm_arr[ipop][NA-1],par->z0_norm,par->zf_norm);
+  }
   for(iz=0;iz<nz;iz++) {
     double rz=r_of_z(par,zarr[iz]);
     print_info("z=%.3lE, ",zarr[iz]);
