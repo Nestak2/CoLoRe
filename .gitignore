@@ -37,3 +37,7 @@ CoLoRe
 
 # Debug files
 *.dSYM/
+
+# Python bytecode (tests/)
+__pycache__/
+*.pyc
