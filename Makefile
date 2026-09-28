@@ -9,9 +9,9 @@ OPTIONS = -Wall -Wno-format-overflow -Wno-incompatible-pointer-types -O3 -std=c9
 #Use double precision integer (enable in general)
 DEFINEFLAGS += -D_LONGIDS
 #Use normalized bias model
-#DEFINEFLAGS += -D_BIAS_MODEL_2
+DEFINEFLAGS += -D_BIAS_MODEL_2
 #Use linear bias model
-DEFINEFLAGS += -D_BIAS_MODEL_3
+#DEFINEFLAGS += -D_BIAS_MODEL_3
 #Use new lensing method
 #DEFINEFLAGS += -D_USE_FAST_LENSING
 #Generate debug help. Only useful for development
