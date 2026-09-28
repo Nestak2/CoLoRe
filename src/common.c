@@ -587,6 +587,14 @@ unsigned long long get_max_memory(ParamCoLoRe *par,int just_test)
     total_GB_lpt=(unsigned long long)(8*(1+par->lpt_buffer_fraction)*par->nz_here*
 				      ((long)((par->n_grid/2+1)*par->n_grid))*sizeof(dftw_complex));
   }
+  else if(par->dens_type==DENS_TYPE_COLA) {
+    //Loop-phase peak: {x,P,Psi1,Psi2} = 12 buffered particle arrays + 2 PM grids.
+    //The +3*lpt_vels accounts for grid_velx/y/z from allocate_fftw, which the
+    //branches above do not include.
+    total_GB_lpt=(unsigned long long)((12*(1+par->lpt_buffer_fraction)+2+3*par->lpt_vels)*
+				      par->nz_here*
+				      ((long)((par->n_grid/2+1)*par->n_grid))*sizeof(dftw_complex));
+  }
 
   unsigned long long total_GB_srcs=0;
   if(par->do_srcs) {
@@ -721,6 +729,8 @@ unsigned long long get_max_memory(ParamCoLoRe *par,int just_test)
       printf("%.3lf GB (Gaussian)",(double)(total_GB_gau/pow(1024.,3)));
       if((par->dens_type==DENS_TYPE_1LPT) || (par->dens_type==DENS_TYPE_2LPT))
 	printf(", %.3lf GB (%dLPT)",(double)(total_GB_lpt/pow(1024.,3)),par->dens_type);
+      if(par->dens_type==DENS_TYPE_COLA)
+	printf(", %.3lf GB (COLA)",(double)(total_GB_lpt/pow(1024.,3)));
       if(par->do_srcs)
 	printf(", %.3lf GB (srcs)",(double)(total_GB_srcs/pow(1024.,3)));
       if(par->do_imap)

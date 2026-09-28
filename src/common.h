@@ -119,6 +119,7 @@
 #define DENS_TYPE_1LPT 1
 #define DENS_TYPE_2LPT 2
 #define DENS_TYPE_CLIP 3
+#define DENS_TYPE_COLA 4
 
 // End of interpolation parameters
 /////////
@@ -220,6 +221,9 @@ typedef struct {
   int *nadd;
 } HealpixShells;
 
+//Opaque COLA background tables (defined in cola.c)
+struct ColaBg;
+
 typedef struct {
 
 #ifdef _DEBUG
@@ -274,6 +278,18 @@ typedef struct {
   int lpt_vels; // Use 2LPT velocities (only makes sense if dens_type is 2LPT)
   double lpt_buffer_fraction; //Fraction of memory saved for buffer particles
   int output_lpt;
+  // COLA parameters (only used if dens_type==DENS_TYPE_COLA)
+  int cola_n_steps; //Number of COLA time steps (0 -> pure LPT, used for testing)
+  double cola_z_init; //Redshift at which the COLA integration starts
+  double cola_nlpt; //Exponent of the Tassev time variable (0 -> standard kick/drift factors)
+  int cola_step_dist; //0 -> steps uniform in a, 1 -> uniform in log(a)
+  int cola_lightcone_mode; //1 -> deposit on Eulerian lightcone crossing, 0 -> Lagrangian radius (test)
+  int cola_subtract_mean; //Subtract the mean PM force and residual momentum
+  int cola_deconvolve_cic; //Deconvolve the CIC window in the Poisson solve
+  int cola_use_2lpt; //Include the 2nd-order displacement in the COLA frame
+  int cola_force_grid_factor; //Force-mesh refinement factor (only 1 implemented)
+  int cola_allow_smoothing; //Override the r_smooth>0 guard (not recommended)
+  struct ColaBg *cola_bg; //COLA background tables (a-indexed), NULL unless allocated
   unsigned int seed_rng; //RNG seed
   // Box parameters
   int n_grid; //Number of cells per side for the Cartesian grid
@@ -496,6 +512,12 @@ void get_beam_properties(ParamCoLoRe *par);
 // Functions defined in density.c
 void compute_physical_density_field(ParamCoLoRe *par);
 void compute_density_normalization(ParamCoLoRe *par);
+
+
+//////
+// Functions defined in cola.c
+void cola_compute_density_field(ParamCoLoRe *par);
+void cola_free(ParamCoLoRe *par);
 
 
 //////

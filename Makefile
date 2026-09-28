@@ -117,6 +117,7 @@ COSMOMADO = src/cosmo_mad.o
 COSMOO = src/cosmo.o
 FOURIERO = src/fourier.o
 DENSO = src/density.o
+COLAO = src/cola.o
 SRCSO = src/srcs.o
 IMAPO = src/imap.o
 CSTMO = src/cstm.o
@@ -129,7 +130,7 @@ BEAMO = src/beaming.o
 PREDICTO = src/predictions.o
 FFTLOGO = src/fftlog.o
 MAIN = src/main.c
-OFILES = $(COMMONO) $(COSMOMADO) $(COSMOO) $(FOURIERO) $(DENSO) $(BEAMO) $(IOO) $(HPIXO) $(SRCSO) $(IMAPO) $(CSTMO) $(KAPPAO) $(LENSINGO) $(ISWO) $(FFTLOGO) $(PREDICTO)
+OFILES = $(COMMONO) $(COSMOMADO) $(COSMOO) $(FOURIERO) $(DENSO) $(COLAO) $(BEAMO) $(IOO) $(HPIXO) $(SRCSO) $(IMAPO) $(CSTMO) $(KAPPAO) $(LENSINGO) $(ISWO) $(FFTLOGO) $(PREDICTO)
 #OFILES = $(COMMONO) $(COSMOMADO) $(COSMOO) $(FOURIERO) $(DENSO) $(LCO) $(IOO) $(HPIXO) $(PIXO) $(PREDICTO) $(FFTLOGO)
 
 EXEC = CoLoRe
@@ -138,6 +139,12 @@ default : $(EXEC)
 
 %.o : %.c
 	$(COMP_CC) $(OPTIONS) $(INC_ALL) -c $< -o $@
+
+#Rebuild everything when a header changes. Without this, editing common.h (which
+#holds the ParamCoLoRe layout) leaves stale objects linked against the old
+#struct offsets, which shows up as a segfault rather than a compile error.
+$(OFILES) : src/common.h src/cosmo_mad.h src/fftlog.h
+$(EXEC) : src/common.h src/cosmo_mad.h src/fftlog.h
 
 $(OFILES) : COMP_CC := $(COMP_PAR)
 

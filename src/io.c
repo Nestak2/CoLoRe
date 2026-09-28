@@ -67,6 +67,17 @@ static ParamCoLoRe *param_colore_new(void)
   par->lpt_vels=0;
   par->lpt_buffer_fraction=0.2;
   par->output_lpt=0;
+  par->cola_n_steps=20;
+  par->cola_z_init=9.0;
+  par->cola_nlpt=0.0;
+  par->cola_step_dist=0;
+  par->cola_lightcone_mode=1;
+  par->cola_subtract_mean=1;
+  par->cola_deconvolve_cic=1;
+  par->cola_use_2lpt=1;
+  par->cola_force_grid_factor=1;
+  par->cola_allow_smoothing=0;
+  par->cola_bg=NULL;
   par->seed_rng=1234;
   par->z0_norm=0;
   par->zf_norm=0;
@@ -193,6 +204,27 @@ static int conf_read_string_optional(config_t *conf, char *secname, char *varnam
       sprintf(out,"%s",str);
   }
 
+//Like conf_read_int/conf_read_double, but leave *out untouched (i.e. keep the
+//default) if the variable is absent. Needed so that adding new parameters does
+//not break existing parameter files.
+static void conf_read_int_optional(config_t *conf,char *secname,char *varname,int *out)
+{
+  char fullpath[256];
+  int val;
+  sprintf(fullpath,"%s.%s",secname,varname);
+  if(config_lookup_int(conf,fullpath,&val)!=CONFIG_FALSE)
+    *out=val;
+}
+
+static void conf_read_double_optional(config_t *conf,char *secname,char *varname,double *out)
+{
+  char fullpath[256];
+  double val;
+  sprintf(fullpath,"%s.%s",secname,varname);
+  if(config_lookup_float(conf,fullpath,&val)!=CONFIG_FALSE)
+    *out=val;
+}
+
 static void conf_read_double(config_t *conf,char *secname,char *varname,double *out)
 {
   int stat;
@@ -306,6 +338,18 @@ ParamCoLoRe *read_run_params(char *fname,int test_memory)
   conf_read_int(conf,"field_par","lpt_interp_type",&(par->lpt_interp_type));
   conf_read_int(conf,"field_par","lpt_vels",&(par->lpt_vels));
   conf_read_int(conf,"field_par","output_lpt",&(par->output_lpt));
+  if(par->dens_type==DENS_TYPE_COLA) {
+    conf_read_int_optional   (conf,"field_par","cola_n_steps",          &(par->cola_n_steps));
+    conf_read_double_optional(conf,"field_par","cola_z_init",           &(par->cola_z_init));
+    conf_read_double_optional(conf,"field_par","cola_nlpt",             &(par->cola_nlpt));
+    conf_read_int_optional   (conf,"field_par","cola_step_dist",        &(par->cola_step_dist));
+    conf_read_int_optional   (conf,"field_par","cola_lightcone_mode",   &(par->cola_lightcone_mode));
+    conf_read_int_optional   (conf,"field_par","cola_subtract_mean",    &(par->cola_subtract_mean));
+    conf_read_int_optional   (conf,"field_par","cola_deconvolve_cic",   &(par->cola_deconvolve_cic));
+    conf_read_int_optional   (conf,"field_par","cola_use_2lpt",         &(par->cola_use_2lpt));
+    conf_read_int_optional   (conf,"field_par","cola_force_grid_factor",&(par->cola_force_grid_factor));
+    conf_read_int_optional   (conf,"field_par","cola_allow_smoothing",  &(par->cola_allow_smoothing));
+  }
 
   par->seed_rng=i_dum;
   conf_read_string(conf,"global","output_format",c_dum);
@@ -483,6 +527,41 @@ ParamCoLoRe *read_run_params(char *fname,int test_memory)
   else
     par->do_smoothing=0;
 
+  //COLA sanity checks. These must run before init_fftw/get_max_memory/allocate_fftw,
+  //since some of them change lpt_vels, which controls the velocity grid allocation.
+  if(par->dens_type==DENS_TYPE_COLA) {
+    if(par->do_smoothing && !(par->cola_allow_smoothing)) {
+      report_error(1,"COLA needs an unsmoothed initial field: the r_smooth=%.3lf Mpc/h Gaussian "
+		   "filter permanently removes the small-scale power the PM steps are meant to "
+		   "evolve, so COLA would just reproduce 2LPT. Set r_smooth to a negative value, "
+		   "or set cola_allow_smoothing=1 if you really mean it.\n",sqrt(par->r2_smooth));
+    }
+    if(par->cola_z_init<par->z_max) {
+      report_error(1,"cola_z_init (%.3lf) must be >= z_max (%.3lf), otherwise the outermost "
+		   "shell of the lightcone has no COLA history.\n",par->cola_z_init,par->z_max);
+    }
+    if(par->cola_n_steps<0)
+      report_error(1,"cola_n_steps (%d) must be >= 0\n",par->cola_n_steps);
+    if(par->cola_force_grid_factor!=1) {
+      report_error(1,"cola_force_grid_factor=%d is not implemented (only 1). Use a larger "
+		   "n_grid instead.\n",par->cola_force_grid_factor);
+    }
+    if(par->lpt_interp_type!=INTERP_CIC) {
+      report_error(1,"COLA only supports lpt_interp_type=1 (CIC); the PM solve, the force "
+		   "read-back and the deposit are all CIC.\n");
+    }
+    if(!(par->lpt_vels)) {
+      par->lpt_vels=1;
+      print_info("COLA: forcing lpt_vels=1 (otherwise the density would be non-linear while "
+		 "the RSDs stayed linear-theory)\n");
+    }
+    if(par->output_lpt) {
+      par->output_lpt=0;
+      print_info("COLA: forcing output_lpt=0 (the particle writer needs all particles at once, "
+		 "but COLA emits them incrementally as they cross the lightcone)\n");
+    }
+  }
+
   par->need_beaming=(par->do_srcs_lensing+par->do_kappa+par->do_lensing+
 		     par->do_isw+par->do_skewers+par->do_cstm);
   init_fftw(par);
@@ -505,6 +584,17 @@ ParamCoLoRe *read_run_params(char *fname,int test_memory)
     print_info("  Density field pre-smoothed on scales: x_s = %.3lE Mpc/h\n",sqrt(par->r2_smooth));
   else
     print_info("  No extra smoothing\n");
+  if(par->dens_type==DENS_TYPE_COLA) {
+    print_info("  COLA: %d steps from z = %.3lf, nLPT = %.2lf, steps uniform in %s\n",
+	       par->cola_n_steps,par->cola_z_init,par->cola_nlpt,
+	       par->cola_step_dist ? "log(a)" : "a");
+    print_info("  COLA: 2LPT frame %s, CIC deconvolution %s, mean subtraction %s\n",
+	       par->cola_use_2lpt ? "on" : "off",
+	       par->cola_deconvolve_cic ? "on" : "off",
+	       par->cola_subtract_mean ? "on" : "off");
+    if(!(par->cola_lightcone_mode))
+      print_info("  COLA: TEST MODE - depositing at the Lagrangian radius, not on crossing\n");
+  }
   if(par->do_srcs)
     print_info("  %d galaxy populations\n",par->n_srcs);
   if(par->do_skewers)
@@ -1358,6 +1448,7 @@ void param_colore_free(ParamCoLoRe *par)
   free(par->iz0_all);
   free(par->logkarr);
   free(par->pkarr);
+  cola_free(par); //No-op unless the COLA tables were allocated
   end_fftw(par);
 
   if(par->do_srcs) {

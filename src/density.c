@@ -1438,6 +1438,8 @@ void compute_physical_density_field(ParamCoLoRe *par)
     lpt_2(par);
   else if(par->dens_type==DENS_TYPE_CLIP)
     densclip(par);
+  else if(par->dens_type==DENS_TYPE_COLA)
+    cola_compute_density_field(par);
   else
     report_error(1,"Density type %d not supported\n",par->dens_type);
 
