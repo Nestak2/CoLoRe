@@ -126,6 +126,22 @@ typedef struct {
 //////
 // Small helpers
 
+#ifdef _DEBUG
+#include <time.h>
+static double cola_t_dep=0,cola_t_fft=0,cola_t_read=0,cola_t_kick=0,cola_t_drift=0;
+static double cola_wt(void)
+{
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC,&ts);
+  return ts.tv_sec+1E-9*ts.tv_nsec;
+}
+#define COLA_TIC double _t0=cola_wt()
+#define COLA_TOC(X) X+=cola_wt()-_t0
+#else //_DEBUG
+#define COLA_TIC
+#define COLA_TOC(X)
+#endif //_DEBUG
+
 static dftw_complex *cola_alloc_complex(ptrdiff_t dsize)
 {
   dftw_complex *p;
@@ -782,9 +798,9 @@ static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
   double sub2=d2c-d1c*d1c;
   unsigned long long np=st->np;
 
-  cola_pm_deposit(par,st);
+  {COLA_TIC; cola_pm_deposit(par,st); COLA_TOC(cola_t_dep);}
   //In-place: pmd IS the real alias of dk
-  fftw_wrap_r2c(par->n_grid,st->pmd,st->dk);
+  {COLA_TIC; fftw_wrap_r2c(par->n_grid,st->pmd,st->dk); COLA_TOC(cola_t_fft);}
 
   for(ax=0;ax<3;ax++) {
     unsigned long long ii;
@@ -845,8 +861,8 @@ static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
     } //end omp parallel
 
     //In-place: pmf IS the real alias of scr
-    fftw_wrap_c2r(par->n_grid,st->scr,st->pmf);
-    cola_cic_read(par,st,st->pmf,phi);
+    {COLA_TIC; fftw_wrap_c2r(par->n_grid,st->scr,st->pmf); COLA_TOC(cola_t_fft);}
+    {COLA_TIC; cola_cic_read(par,st,st->pmf,phi); COLA_TOC(cola_t_read);}
 
     if(diagnose) {
       //Linear-force test. In linear theory Phi = D1(a)*Psi1, so regressing the
@@ -889,6 +905,7 @@ static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
 #endif //_HAVE_MPI
     }
 
+    {COLA_TIC;
 #ifdef _HAVE_OMP
 #pragma omp parallel for default(none) \
   shared(st,phi,np,ax,kfac,sub1,sub2,phimean) schedule(static)
@@ -897,6 +914,7 @@ static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
       st->p[ax][ii]+=kfac*(phi[ii]-phimean
 			   -sub1*st->s1[ax][ii]-sub2*st->s2[ax][ii]);
     }
+    COLA_TOC(cola_t_kick);}
   }
 }
 
@@ -1289,7 +1307,7 @@ void cola_compute_density_field(ParamCoLoRe *par)
 #else //_DEBUG
     cola_force_and_kick(par,&st,alo,ah[i],aa[i],phi,0);
 #endif //_DEBUG
-    cola_drift(par,&st,aa[i],aa[i+1],ah[i],&ncr);
+    {COLA_TIC; cola_drift(par,&st,aa[i],aa[i+1],ah[i],&ncr); COLA_TOC(cola_t_drift);}
     print_info("   %llu particles crossed the lightcone\n",ncr);
   }
 
@@ -1320,6 +1338,14 @@ void cola_compute_density_field(ParamCoLoRe *par)
     }
   }
   print_info(" - %llu particles deposited at the final time (inside r(z_min))\n",nleft);
+
+#ifdef _DEBUG
+  if(ns>0) {
+    print_info(" - Timing: deposit %.2lf s, FFT %.2lf s, force read-back %.2lf s, "
+	       "kick %.2lf s, drift %.2lf s\n",
+	       cola_t_dep,cola_t_fft,cola_t_read,cola_t_kick,cola_t_drift);
+  }
+#endif //_DEBUG
 
   free(aa);
   free(ah);
