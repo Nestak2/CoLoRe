@@ -277,10 +277,12 @@ void print_info(char *fmt,...)
 {
   if(NodeThis==0) {
     va_list args;
-    char msg[256];
+    char msg[1024];
 
+    //vsnprintf, not vsprintf: a message longer than the buffer used to
+    //overflow the stack rather than being truncated.
     va_start(args,fmt);
-    vsprintf(msg,fmt,args);
+    vsnprintf(msg,sizeof(msg),fmt,args);
     va_end(args);
 
     printf("%s",msg);
@@ -290,10 +292,13 @@ void print_info(char *fmt,...)
 void report_error(int level,char *fmt,...)
 {
   va_list args;
-  char msg[256];
+  char msg[1024];
 
+  //vsnprintf, not vsprintf: a message longer than the buffer used to overflow
+  //the stack rather than being truncated, which turned a clear error message
+  //into "*** buffer overflow detected ***".
   va_start(args,fmt);
-  vsprintf(msg,fmt,args);
+  vsnprintf(msg,sizeof(msg),fmt,args);
   va_end(args);
 
   if(level) {

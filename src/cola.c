@@ -1268,7 +1268,7 @@ void cola_compute_density_field(ParamCoLoRe *par)
     par->grid_velz[ii]=0;
   }
 
-  if((ns==0) && !(par->cola_lightcone_mode)) {
+  if(!(par->cola_lightcone_mode)) {
     //Stage-1 self-test path: pure 2LPT at the Lagrangian radius
     cola_lpt_reference(par,&st);
     cola_finalize(par);

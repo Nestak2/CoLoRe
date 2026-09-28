@@ -540,8 +540,22 @@ ParamCoLoRe *read_run_params(char *fname,int test_memory)
       report_error(1,"cola_z_init (%.3lf) must be >= z_max (%.3lf), otherwise the outermost "
 		   "shell of the lightcone has no COLA history.\n",par->cola_z_init,par->z_max);
     }
-    if(par->cola_n_steps<0)
-      report_error(1,"cola_n_steps (%d) must be >= 0\n",par->cola_n_steps);
+    //Two well-defined modes: cola_lightcone_mode=0 is the pure-LPT reference
+    //(no time loop at all, so cola_n_steps is ignored and must be 0 to make
+    //that explicit), and cola_lightcone_mode=1 is the real thing and needs at
+    //least one step.
+    if(par->cola_lightcone_mode) {
+      if(par->cola_n_steps<1) {
+	report_error(1,"cola_n_steps (%d) must be >= 1. Use cola_n_steps=0 together with "
+		     "cola_lightcone_mode=0 for the pure-2LPT self-test.\n",par->cola_n_steps);
+      }
+    }
+    else {
+      if(par->cola_n_steps!=0) {
+	report_error(1,"cola_lightcone_mode=0 is the pure-2LPT self-test and takes no "
+		     "timesteps; set cola_n_steps=0 (it is currently %d).\n",par->cola_n_steps);
+      }
+    }
     if(par->cola_force_grid_factor!=1) {
       report_error(1,"cola_force_grid_factor=%d is not implemented (only 1). Use a larger "
 		   "n_grid instead.\n",par->cola_force_grid_factor);
