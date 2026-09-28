@@ -8,7 +8,7 @@ in the lightcone sub-cube test is geometry, not normalisation.
 import os, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from analyze import read_density_grid, measure_pk
+from pk_lightcone import read_density_grid, measure_pk
 
 run = sys.argv[1]
 pkfile = sys.argv[2]

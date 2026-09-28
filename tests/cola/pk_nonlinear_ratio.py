@@ -18,7 +18,7 @@ CIC assignment window is divided out of the former.
 import os, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from analyze import read_density_grid, subcubes
+from pk_lightcone import read_density_grid, subcubes
 
 
 def measure_pk_win(delta, lsub, nbin, kmin, kmax, dx_cic=None):
