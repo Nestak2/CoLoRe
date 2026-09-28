@@ -45,6 +45,20 @@
 //     (the (D2 - D1^2) bracket is L-PICOLA's q2 term rewritten for CoLoRe's
 //     standard, negative D2 convention).
 //
+// Discretisation. The drift is exact in its LPT part, because G_i(a) is known
+// analytically and integrates to D_i(a_f) - D_i(a_i). The kick is not: the PM
+// force is only available at one time a_c per step, so Phi is frozen there --
+// and the LPT terms subtracted from it MUST be frozen at the same a_c, or the
+// two stop cancelling and every step injects a spurious error proportional to
+// Psi1, i.e. straight into the large scales COLA is supposed to keep exact.
+// Using the exact increment G_i(a_hi) - G_i(a_lo) instead looks more accurate
+// but is wrong for precisely this reason; it shows up as P(k) losing large-scale
+// power as cola_z_init is pushed earlier (45% at z_init = 49 with 20 steps).
+// So, following L-PICOLA:
+//     dP_res = (3/2) Omega_M H0^2 * K(a_lo,a_hi)
+//              * [ Phi(a_c) - D1(a_c) Psi1 - (D2(a_c) - D1(a_c)^2) Psi2 ]
+// which cancels identically at first order for any step size.
+//
 // Lightcone handling: CoLoRe's box is the lightcone volume with the observer at
 // its centre, so every particle is observed at its own cosmic time. We run one
 // global time loop over the whole box and, during each drift, deposit each
@@ -96,10 +110,18 @@ typedef struct {
   flouble *s1[3];              //Psi1 (Lagrangian, travels with the particle)
   flouble *s2[3];              //Psi2
   unsigned char *done;         //0 = not yet deposited, 1 = deposited, 2 = crossing now
-  dftw_complex *dk;            //delta_k of the PM density
-  dftw_complex *scr;           //PM scratch; its real alias is the PM density/force grid
-  flouble *pm;                 //= (flouble *)scr
+  dftw_complex *dk;            //PM density: real (padded) on input, delta_k after the r2c
+  dftw_complex *scr;           //PM scratch: Phi_a(k), then the real force grid in place
+  flouble *pmd;                //= (flouble *)dk,  the padded PM density grid
+  flouble *pmf;                //= (flouble *)scr, the padded PM force grid
 } ColaState;
+
+//All of CoLoRe's FFTs are in-place: the real array is the complex array
+//reinterpreted, with the x dimension padded to 2*(n_grid/2+1). Calling
+//fftw_wrap_r2c out-of-place would make FFTW expect a *dense* n_grid^3 real
+//array instead, silently reading the wrong memory. So the two PM transforms
+//below are both in-place, which is why the density needs its own complex
+//buffer rather than sharing the scratch one.
 
 //////
 // Small helpers
@@ -559,11 +581,13 @@ static void cola_alloc(ParamCoLoRe *par,ColaState *st)
   st->done=my_calloc(np_alloc,sizeof(unsigned char));
   st->dk=NULL;
   st->scr=NULL;
-  st->pm=NULL;
+  st->pmd=NULL;
+  st->pmf=NULL;
   if(par->cola_n_steps>0) {
     st->dk =cola_alloc_complex(dsize);
     st->scr=cola_alloc_complex(dsize);
-    st->pm =(flouble *)(st->scr);
+    st->pmd=(flouble *)(st->dk);
+    st->pmf=(flouble *)(st->scr);
   }
 }
 
@@ -638,7 +662,7 @@ static void cola_pm_deposit(ParamCoLoRe *par,ColaState *st)
   long ntot=par->nz_here*((long)(par->n_grid*ngx));
 
   for(ii=0;ii<ntot;ii++)
-    st->pm[ii]=0;
+    st->pmd[ii]=0;
 
   //Scatter, so kept serial for now. TODO (performance): counting-sort the
   //particles by i0[2] and colour the z-groups so this can be threaded.
@@ -659,25 +683,38 @@ static void cola_pm_deposit(ParamCoLoRe *par,ColaState *st)
     i1[2]-=par->iz0_here;
 
     if((i0[2]>=0) && (i0[2]<par->nz_here)) {
-      st->pm[i0[0]+ngx*(i0[1]+par->n_grid*i0[2])]+=a0[0]*a0[1]*a0[2];
-      st->pm[i1[0]+ngx*(i0[1]+par->n_grid*i0[2])]+=a1[0]*a0[1]*a0[2];
-      st->pm[i0[0]+ngx*(i1[1]+par->n_grid*i0[2])]+=a0[0]*a1[1]*a0[2];
-      st->pm[i1[0]+ngx*(i1[1]+par->n_grid*i0[2])]+=a1[0]*a1[1]*a0[2];
+      st->pmd[i0[0]+ngx*(i0[1]+par->n_grid*i0[2])]+=a0[0]*a0[1]*a0[2];
+      st->pmd[i1[0]+ngx*(i0[1]+par->n_grid*i0[2])]+=a1[0]*a0[1]*a0[2];
+      st->pmd[i0[0]+ngx*(i1[1]+par->n_grid*i0[2])]+=a0[0]*a1[1]*a0[2];
+      st->pmd[i1[0]+ngx*(i1[1]+par->n_grid*i0[2])]+=a1[0]*a1[1]*a0[2];
     }
     if((i1[2]>=0) && (i1[2]<par->nz_here)) {
-      st->pm[i0[0]+ngx*(i0[1]+par->n_grid*i1[2])]+=a0[0]*a0[1]*a1[2];
-      st->pm[i1[0]+ngx*(i0[1]+par->n_grid*i1[2])]+=a1[0]*a0[1]*a1[2];
-      st->pm[i0[0]+ngx*(i1[1]+par->n_grid*i1[2])]+=a0[0]*a1[1]*a1[2];
-      st->pm[i1[0]+ngx*(i1[1]+par->n_grid*i1[2])]+=a1[0]*a1[1]*a1[2];
+      st->pmd[i0[0]+ngx*(i0[1]+par->n_grid*i1[2])]+=a0[0]*a0[1]*a1[2];
+      st->pmd[i1[0]+ngx*(i0[1]+par->n_grid*i1[2])]+=a1[0]*a0[1]*a1[2];
+      st->pmd[i0[0]+ngx*(i1[1]+par->n_grid*i1[2])]+=a0[0]*a1[1]*a1[2];
+      st->pmd[i1[0]+ngx*(i1[1]+par->n_grid*i1[2])]+=a1[0]*a1[1]*a1[2];
     }
   }
 
-  //rho -> delta. There is exactly one particle per cell, so the mean density is 1.
+  //rho -> delta. There is exactly one particle per cell, so the mean density is
+  //1. Only the real cells are touched: the FFT padding must stay at zero, or it
+  //would inject a spurious comb into delta_k.
+  {
+    long iz;
 #ifdef _HAVE_OMP
-#pragma omp parallel for default(none) shared(par,st,ngx,ntot) schedule(static)
+#pragma omp parallel for default(none) shared(par,st,ngx) schedule(static)
 #endif //_HAVE_OMP
-  for(ii=0;ii<ntot;ii++)
-    st->pm[ii]-=1.0;
+    for(iz=0;iz<par->nz_here;iz++) {
+      int iy;
+      long indexz=iz*((long)(ngx*par->n_grid));
+      for(iy=0;iy<par->n_grid;iy++) {
+	int ix;
+	long indexy=iy*ngx;
+	for(ix=0;ix<par->n_grid;ix++)
+	  st->pmd[ix+indexy+indexz]-=1.0;
+      }
+    }
+  }
 }
 
 //////
@@ -732,17 +769,22 @@ static void cola_cic_read(ParamCoLoRe *par,ColaState *st,flouble *grid,flouble *
 // PM working set stays at two complex grids.
 
 static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
-				double alo,double ahi,double ac,flouble *phi)
+				double alo,double ahi,double ac,flouble *phi,
+				int diagnose)
 {
   int ax;
   struct ColaBg *bg=par->cola_bg;
   double kfac=par->prefac_lensing*cola_kick_factor(par,alo,ahi,ac);
-  double dg1=cbg(bg,ahi,bg->g1)-cbg(bg,alo,bg->g1);
-  double dg2=cbg(bg,ahi,bg->g2)-cbg(bg,alo,bg->g2);
+  double d1c=cbg(bg,ac,bg->d1);
+  double d2c=cbg(bg,ac,bg->d2);
+  //LPT terms frozen at a_c, exactly as Phi is (see the discretisation note above)
+  double sub1=d1c;
+  double sub2=d2c-d1c*d1c;
   unsigned long long np=st->np;
 
   cola_pm_deposit(par,st);
-  fftw_wrap_r2c(par->n_grid,st->pm,st->dk);
+  //In-place: pmd IS the real alias of dk
+  fftw_wrap_r2c(par->n_grid,st->pmd,st->dk);
 
   for(ax=0;ax<3;ax++) {
     unsigned long long ii;
@@ -802,8 +844,32 @@ static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
       } //end omp for
     } //end omp parallel
 
-    fftw_wrap_c2r(par->n_grid,st->scr,st->pm);
-    cola_cic_read(par,st,st->pm,phi);
+    //In-place: pmf IS the real alias of scr
+    fftw_wrap_c2r(par->n_grid,st->scr,st->pmf);
+    cola_cic_read(par,st,st->pmf,phi);
+
+    if(diagnose) {
+      //Linear-force test. In linear theory Phi = D1(a)*Psi1, so regressing the
+      //PM force on D1*Psi1 must give a slope close to 1 at the starting
+      //redshift. This is the sharpest available check on the sign and the
+      //normalisation of the Poisson solve, and it is worth running before
+      //trusting a single timestep.
+      double sxy=0,syy=0,sxx=0;
+      unsigned long long jj;
+#ifdef _HAVE_OMP
+#pragma omp parallel for default(none) \
+  shared(st,phi,np,ax,d1c) reduction(+:sxy,syy,sxx) schedule(static)
+#endif //_HAVE_OMP
+      for(jj=0;jj<np;jj++) {
+	double ref=d1c*st->s1[ax][jj];
+	sxy+=ref*phi[jj];
+	sxx+=ref*ref;
+	syy+=phi[jj]*phi[jj];
+      }
+      print_info("   linear-force test, axis %d: slope = %.4lf, "
+		 "rms(Phi) = %.4lE, rms(D1*Psi1) = %.4lE Mpc/h\n",
+		 ax,(sxx>0 ? sxy/sxx : 0),sqrt(syy/np),sqrt(sxx/np));
+    }
 
     if(par->cola_subtract_mean) {
       //The k=0 mode is zero analytically, but the CIC round trip leaves a small
@@ -825,10 +891,11 @@ static void cola_force_and_kick(ParamCoLoRe *par,ColaState *st,
 
 #ifdef _HAVE_OMP
 #pragma omp parallel for default(none) \
-  shared(st,phi,np,ax,kfac,dg1,dg2,phimean) schedule(static)
+  shared(st,phi,np,ax,kfac,sub1,sub2,phimean) schedule(static)
 #endif //_HAVE_OMP
     for(ii=0;ii<np;ii++) {
-      st->p[ax][ii]+=kfac*(phi[ii]-phimean)-dg1*st->s1[ax][ii]-dg2*st->s2[ax][ii];
+      st->p[ax][ii]+=kfac*(phi[ii]-phimean
+			   -sub1*st->s1[ax][ii]-sub2*st->s2[ax][ii]);
     }
   }
 }
@@ -1217,14 +1284,18 @@ void cola_compute_density_field(ParamCoLoRe *par)
     double alo=(i==0 ? aa[0] : ah[i-1]);
     print_info(" - Step %d/%d: a = %.4lf -> %.4lf (z = %.3lf -> %.3lf)\n",
 	       i+1,ns,aa[i],aa[i+1],1./aa[i]-1,1./aa[i+1]-1);
-    cola_force_and_kick(par,&st,alo,ah[i],aa[i],phi);
+#ifdef _DEBUG
+    cola_force_and_kick(par,&st,alo,ah[i],aa[i],phi,(i==0));
+#else //_DEBUG
+    cola_force_and_kick(par,&st,alo,ah[i],aa[i],phi,0);
+#endif //_DEBUG
     cola_drift(par,&st,aa[i],aa[i+1],ah[i],&ncr);
     print_info("   %llu particles crossed the lightcone\n",ncr);
   }
 
   if(ns>0) {
     //Closing half kick, so the leftover particles get the right velocity
-    cola_force_and_kick(par,&st,ah[ns-1],aa[ns],aa[ns],phi);
+    cola_force_and_kick(par,&st,ah[ns-1],aa[ns],aa[ns],phi,0);
     free(phi);
   }
 
